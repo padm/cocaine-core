@@ -109,36 +109,44 @@ config_t::config_t(const std::string& config_path) {
         throw cocaine::error_t("the %s path is not a directory", path.runtime);
     }
 
-    // Hostname configuration
-
-    char hostname[256];
-
-    if(gethostname(hostname, 256) != 0) {
-        throw std::system_error(errno, std::system_category(), "unable to determine the hostname");
-    }
-
-    addrinfo hints,
-             *result = nullptr;
-
-    std::memset(&hints, 0, sizeof(addrinfo));
-
-    hints.ai_flags = AI_CANONNAME;
-
-    const int rv = getaddrinfo(hostname, nullptr, &hints, &result);
-
-    if(rv != 0) {
-        throw std::system_error(rv, io::gai_category(), "unable to determine the hostname");
-    }
-
-    network.hostname = result->ai_canonname;
-    network.uuid     = unique_id_t().string();
-
-    freeaddrinfo(result);
-
     // Locator configuration
 
     network.endpoint = root["locator"].get("endpoint", defaults::endpoint).asString();
     network.locator = root["locator"].get("port", defaults::locator_port).asUInt();
+
+    // Hostname configuration
+
+    io::tcp::endpoint requested = {
+        boost::asio::ip::address::from_string(network.endpoint),
+        network.locator
+    };
+
+    auto endpoints = io::resolver<io::tcp>::query(requested.protocol(), network.endpoint, network.locator);
+    auto fd = ::socket(SOCK_STREAM, requested.protocol().family(), 0);
+
+    BOOST_VERIFY(fd != -1);
+
+    char hostname[256] = { 0 };
+
+    for(auto it = endpoints.begin(); it != endpoints.end(); ++it) {
+        if(::bind(fd, it->data(), it->size()) != 0) {
+            continue;
+        }
+
+        if(::getnameinfo(it->data(), it->size(), hostname, 256, nullptr, 0, 0) != 0) {
+            continue;
+        }
+
+        network.hostname = hostname;
+
+        break;
+    }
+
+    ::close(fd);
+
+    if(network.hostname.empty()) {
+        throw cocaine::error_t("unable to determine the node name");
+    }
 
     if(!root["locator"]["port-range"].empty()) {
         network.ports = std::make_tuple(
@@ -146,6 +154,8 @@ config_t::config_t(const std::string& config_path) {
             root["locator"]["port-range"].get(1u, defaults::max_port).asUInt()
         );
     }
+
+    network.uuid = unique_id_t().string();
 
     // Cluster configuration
 
