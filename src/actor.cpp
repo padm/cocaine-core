@@ -124,7 +124,6 @@ private:
 };
 
 actor_t::actor_t(context_t& context, std::shared_ptr<reactor_t> reactor, std::unique_ptr<dispatch_t>&& dispatch):
-    m_context(context),
     m_log(new logging::log_t(context, dispatch->name())),
     m_reactor(reactor),
     m_dispatch(std::move(dispatch))
@@ -212,11 +211,15 @@ actor_t::dispatch() {
 
 auto
 actor_t::metadata() const -> metadata_t {
-    const auto port = location().front().port();
-    const auto endpoint = locator::endpoint_tuple_type(m_context.config.network.hostname, port);
+    std::vector<locator::endpoint_tuple_type> tuples;
+    std::vector<tcp::endpoint> endpoints = location();
+
+    for(auto it = endpoints.begin(); it != endpoints.end(); ++it) {
+        tuples.push_back({it->address().to_string(), it->port()});
+    }
 
     return metadata_t(
-        endpoint,
+        tuples,
         m_dispatch->version(),
         m_dispatch->map()
     );

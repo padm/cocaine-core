@@ -81,8 +81,6 @@ class actor_t {
         on_failure(int fd, const std::error_code& ec);
 
     private:
-        context_t& m_context;
-
         const std::unique_ptr<logging::log_t> m_log;
         const std::shared_ptr<io::reactor_t> m_reactor;
 

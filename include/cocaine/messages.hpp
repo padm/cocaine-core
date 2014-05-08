@@ -45,8 +45,8 @@ namespace locator {
         > tuple_type;
 
         typedef boost::mpl::list<
-         /* An endpoint for the client to connect to in order to use the the service. */
-            endpoint_tuple_type,
+         /* Possible endpoints for the client to connect to in order to use the the service. */
+            std::vector<endpoint_tuple_type>,
          /* Service protocol version. If the client wishes to use the service, the protocol
             versions must match. */
             unsigned int,

@@ -77,8 +77,8 @@ struct config_t {
         std::string hostname;
         std::string uuid;
 
-        // NOTE: An endpoint where all the services and the service locator will be bound.
-        std::string endpoint;
+        // NOTE: Endpoints where all the services and the service locator will be bound.
+        std::vector<std::string> endpoints;
 
         // NOTE: Service locator port is configurable to allow multiple runtimes to run on a single
         // machine. This port will be forwarded to the slaves via a command-line argument.

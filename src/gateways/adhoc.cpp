@@ -66,11 +66,9 @@ adhoc_t::resolve(const std::string& name) const -> metadata_t {
 
     COCAINE_LOG_DEBUG(
         m_log,
-        "providing '%s' using remote node '%s' on %s:%d",
+        "providing '%s' using remote node '%s'",
         name,
-        it->second.uuid,
-        std::get<0>(endpoint),
-        std::get<1>(endpoint)
+        it->second.uuid
     );
 
     return it->second.meta;

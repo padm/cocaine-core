@@ -236,9 +236,14 @@ locator_t::attach(const std::string& name, std::unique_ptr<actor_t>&& service) {
             m_ports.pop();
         }
 
-        const std::vector<io::tcp::endpoint> endpoints = {
-            { boost::asio::ip::address::from_string(m_context.config.network.endpoint), port }
-        };
+        std::vector<io::tcp::endpoint> endpoints;
+
+        for(auto it = m_context.config.network.endpoints.begin(); it != m_context.config.network.endpoints.end(); ++it) {
+            endpoints.push_back({
+                boost::asio::ip::address::from_string(*it),
+                port
+            });
+        }
 
         service->run(endpoints);
 
@@ -272,6 +277,7 @@ locator_t::detach(const std::string& name) -> std::unique_ptr<actor_t> {
         it->second->terminate();
 
         if(m_context.config.network.ports) {
+            // Port is the same across all endpoints, so just push back the one from the first.
             m_ports.push(endpoints.front().port());
         }
 

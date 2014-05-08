@@ -137,7 +137,16 @@ config_t::config_t(const std::string& config_path) {
 
     // Locator configuration
 
-    network.endpoint = root["locator"].get("endpoint", defaults::endpoint).asString();
+    auto endpoints = root["locator"]["endpoints"];
+
+    if(endpoints.empty() || !endpoints.isArray()) {
+        network.endpoints.push_back(defaults::endpoint);
+    } else {
+        for(auto it = endpoints.begin(); it != endpoints.end(); ++it) {
+            network.endpoints.push_back((*it).asString());
+        }
+    }
+
     network.locator = root["locator"].get("port", defaults::locator_port).asUInt();
 
     if(!root["locator"]["port-range"].empty()) {
@@ -309,9 +318,14 @@ context_t::bootstrap() {
         }
     }
 
-    const std::vector<io::tcp::endpoint> endpoints = {
-        { boost::asio::ip::address::from_string(config.network.endpoint), config.network.locator }
-    };
+    std::vector<io::tcp::endpoint> endpoints;
+
+    for(auto it = config.network.endpoints.begin(); it != config.network.endpoints.end(); ++it) {
+        endpoints.push_back({
+            boost::asio::ip::address::from_string(*it),
+            config.network.locator
+        });
+    }
 
     COCAINE_LOG_INFO(blog, "starting the service locator on port %d", config.network.locator);
 
