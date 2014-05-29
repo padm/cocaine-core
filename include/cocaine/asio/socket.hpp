@@ -52,6 +52,21 @@ struct socket {
         ::fcntl(m_fd, F_SETFL, O_NONBLOCK);
     }
 
+    socket(std::string s) {
+        typename endpoint_type::protocol_type protocol(endpoint_type().protocol());
+
+        m_fd = ::socket(AF_INET6, protocol.type(), protocol.protocol());
+
+        if(m_fd == -1) {
+            throw std::system_error(errno, std::system_category(), s + "unable to create a socket");
+        }
+
+        medium_type::configure(m_fd);
+
+        ::fcntl(m_fd, F_SETFD, FD_CLOEXEC);
+        ::fcntl(m_fd, F_SETFL, O_NONBLOCK);
+    }
+
     explicit
     socket(endpoint_type endpoint) {
         typename endpoint_type::protocol_type protocol = endpoint.protocol();

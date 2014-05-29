@@ -153,6 +153,9 @@ config_t::config_t(const std::string& config_path) {
         if(!root["network"]["group"].empty()) {
             network.group = root["network"]["group"].asString();
         }
+	if(!root["network"]["interface"].empty()) {
+	    network.interface = root["network"]["interface"].asString();
+	}
 
         if(!root["network"]["gateway"].empty()) {
             network.gateway = {

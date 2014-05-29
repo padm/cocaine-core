@@ -116,9 +116,15 @@ locator_t::connect() {
     };
 
     if(m_context.config.network.gateway) {
-        const io::udp::endpoint bindpoint = { address::from_string("0.0.0.0"), 10054 };
-
-        m_sink.reset(new io::socket<io::udp>());
+	io::udp::endpoint bindpoint;
+	if (endpoint.protocol().family() == AF_INET) {
+	    bindpoint = { address::from_string("0.0.0.0"), 10054 };
+	    m_sink.reset(new io::socket<io::udp>());
+	} else {
+	    bindpoint = { address::from_string("::"), 10054 };
+	    // NOTE: forcing ipv6 socket creating. this is ugly kludge, need more time for deep discovery why using v4 default family
+	    m_sink.reset(new io::socket<io::udp>("v6"));
+	}
 
         if(::bind(m_sink->fd(), bindpoint.data(), bindpoint.size()) != 0) {
             throw std::system_error(errno, std::system_category(), "unable to bind an announce socket");
@@ -126,17 +132,22 @@ locator_t::connect() {
 
         COCAINE_LOG_INFO(m_log, "joining multicast group '%s' on '%s'", endpoint.address(), bindpoint);
 
-        group_req request;
+	group_req request;
 
-        std::memset(&request, 0, sizeof(request));
+	std::memset(&request, 0, sizeof(request));
 
-        request.gr_interface = 0;
+	if (m_context.config.network.interface) {
+	    request.gr_interface = if_nametoindex(m_context.config.network.interface.get().c_str());
+	    COCAINE_LOG_DEBUG(m_log, "Using interface '%s'[%d]", m_context.config.network.interface.get().c_str(), request.gr_interface);
+	} else {
+	    request.gr_interface = 0;
+	    COCAINE_LOG_DEBUG(m_log, "Using default interface [%d]", request.gr_interface);
+	}
 
-        std::memcpy(&request.gr_group, endpoint.data(), endpoint.size());
-
-        if(::setsockopt(m_sink->fd(), IPPROTO_IP, MCAST_JOIN_GROUP, &request, sizeof(request)) != 0) {
-            throw std::system_error(errno, std::system_category(), "unable to join a multicast group");
-        }
+	std::memcpy(&request.gr_group, endpoint.data(), endpoint.size());
+	if(::setsockopt(m_sink->fd(), endpoint.protocol().family() == AF_INET ? IPPROTO_IP : IPPROTO_IPV6, MCAST_JOIN_GROUP, &request, sizeof(request)) != 0) {
+	    throw std::system_error(errno, std::system_category(), "unable to join a multicast group");
+	}
 
         m_sink_watcher.reset(new ev::io(m_reactor.native()));
         m_sink_watcher->set<locator_t, &locator_t::on_announce_event>(this);
@@ -158,11 +169,21 @@ locator_t::connect() {
     m_announce.reset(new io::socket<io::udp>(endpoint));
 
     const int loop = 0;
-    const int life = IP_DEFAULT_MULTICAST_TTL;
 
     // NOTE: I don't think these calls might fail at all.
-    ::setsockopt(m_announce->fd(), IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
-    ::setsockopt(m_announce->fd(), IPPROTO_IP, IP_MULTICAST_TTL,  &life, sizeof(life));
+    if (endpoint.protocol().family() == AF_INET) {
+	const int life = IP_DEFAULT_MULTICAST_TTL;
+	::setsockopt(m_announce->fd(), IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
+	::setsockopt(m_announce->fd(), IPPROTO_IP, IP_MULTICAST_TTL,  &life, sizeof(life));
+    } else {
+	::setsockopt(m_announce->fd(), IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &loop, sizeof(loop));
+	//::setsockopt(m_announce->fd(), IPPROTO_IPV6, IPV6_MULTICAST_TTL,  &life, sizeof(life));
+	if (m_context.config.network.interface) {
+	    unsigned int/*in_addr_t*/ iface = if_nametoindex(m_context.config.network.interface.get().c_str());;
+	    ::setsockopt(m_announce->fd(), IPPROTO_IPV6, IPV6_MULTICAST_IF, (char*)&iface, sizeof(iface));
+	    COCAINE_LOG_DEBUG(m_log, "Using interface '%s'[%d]", m_context.config.network.interface.get().c_str(), iface);
+	}
+    }
 
     m_announce_timer.reset(new ev::timer(m_reactor.native()));
     m_announce_timer->set<locator_t, &locator_t::on_announce_timer>(this);

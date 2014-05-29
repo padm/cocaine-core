@@ -85,6 +85,7 @@ struct config_t {
         uint16_t locator;
 
         boost::optional<std::string> group;
+        boost::optional<std::string> interface;
         boost::optional<std::tuple<uint16_t, uint16_t>> ports;
         boost::optional<component_t> gateway;
     } network;
