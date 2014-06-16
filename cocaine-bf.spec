@@ -2,7 +2,7 @@
 
 Summary:	Cocaine - Core Libraries
 Name:		libcocaine-core2
-Version:	0.11.2.0
+Version:	0.11.2.3
 Release:	2%{?dist}
 
 
@@ -48,9 +48,6 @@ Cocaine runtime components package.
 
 %prep
 %setup -q
-%if 0%{?fedora} >= 19
-patch -p1 < fedora/libcocaine-boost-mt.patch
-%endif
 
 %build
 %if %{defined rhel}
@@ -121,7 +118,6 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{_includedir}/*
 %{_libdir}/libcocaine-core.so
-%{_libdir}/libjson.so
 
 %files -n %{cocaine_runtime_name}
 %defattr(-,root,root,-)
@@ -137,6 +133,9 @@ rm -rf %{buildroot}
 %{_sysconfdir}/cocaine/cocaine-default.conf
 
 %changelog
+* Wed Jun 11 2014 Evgeniy Polyakov <zbr@ioremap.net> 0.11.2.3-1
+- Updated spec to the latest version to date
+
 * Fri Jan 17 2014 Oleg Cherniy <oleg.cherniy@gmail.com> 0.11.2.0-2
 - Added support for Fedora 19, 20
 
